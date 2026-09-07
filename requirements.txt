@@ -1,0 +1,17 @@
+numpy
+pandas
+scikit-learn
+spacy
+pymupdf
+python-docx
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-multipart
+streamlit
+sqlalchemy
+psycopg2-binary
+python-dotenv
+pytest
+httpx
