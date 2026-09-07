@@ -1,0 +1,37 @@
+JOHN DOE
+john.doe@example.com
++91 9876543210
+
+SUMMARY
+
+Machine Learning Engineer with 4 years of experience building
+production machine learning systems.
+
+SKILLS
+
+Python
+SQL
+Machine Learning
+Scikit-learn
+TensorFlow
+Pandas
+NumPy
+Git
+Docker
+AWS
+FastAPI
+MLflow
+
+EXPERIENCE
+
+Machine Learning Engineer
+ABC Technologies
+2022 - Present
+
+Developed machine learning models using Python and Scikit-learn.
+Built APIs using FastAPI and deployed applications using Docker
+and AWS.
+
+EDUCATION
+
+Bachelor of Technology in Computer Science

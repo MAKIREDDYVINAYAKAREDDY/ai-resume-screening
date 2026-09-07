@@ -1,0 +1,34 @@
+JANE SMITH
+jane.smith@example.com
++91 9876543211
+
+SUMMARY
+
+Data Scientist with 3 years of experience in data analysis,
+predictive modeling, and business intelligence.
+
+SKILLS
+
+Python
+SQL
+Pandas
+NumPy
+Scikit-learn
+Machine Learning
+Power BI
+Tableau
+Excel
+Statistics
+
+EXPERIENCE
+
+Data Scientist
+XYZ Analytics
+2023 - Present
+
+Created predictive models using Python and Scikit-learn.
+Performed statistical analysis and built Power BI dashboards.
+
+EDUCATION
+
+Master of Science in Data Science

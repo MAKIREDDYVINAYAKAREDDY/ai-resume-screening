@@ -1,0 +1,29 @@
+ALEX WILSON
+alex.wilson@example.com
++91 9876543212
+
+SUMMARY
+
+Software Developer with 2 years of experience developing
+web applications.
+
+SKILLS
+
+JavaScript
+TypeScript
+React
+MongoDB
+Git
+Docker
+
+EXPERIENCE
+
+Software Developer
+Web Solutions
+2024 - Present
+
+Developed frontend applications using React and TypeScript.
+
+EDUCATION
+
+Bachelor of Computer Applications

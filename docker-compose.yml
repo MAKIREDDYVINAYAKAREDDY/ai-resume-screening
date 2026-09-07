@@ -1,0 +1,61 @@
+services:
+
+  api:
+
+    build: .
+
+    container_name:
+      resume-screening-api
+
+    ports:
+      - "8000:8000"
+
+    environment:
+
+      DATABASE_URL:
+        sqlite:////app/resume_screening.db
+
+      CORS_ORIGINS:
+        http://localhost:8501
+
+      ENVIRONMENT:
+        docker
+
+    volumes:
+
+      - app_data:/app
+
+
+  frontend:
+
+    build: .
+
+    container_name:
+      resume-screening-frontend
+
+    command:
+      [
+        "streamlit",
+        "run",
+        "frontend/streamlit_app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501"
+      ]
+
+    ports:
+
+      - "8501:8501"
+
+    environment:
+
+      API_URL:
+        http://api:8000
+
+    depends_on:
+
+      - api
+
+
+volumes:
+
+  app_data:

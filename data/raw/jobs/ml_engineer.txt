@@ -1,0 +1,32 @@
+JOB TITLE: Machine Learning Engineer
+
+ABOUT THE ROLE:
+
+Build and deploy machine learning systems.
+
+REQUIRED SKILLS:
+
+Python
+SQL
+Machine Learning
+Scikit-learn
+TensorFlow
+Pandas
+NumPy
+Git
+
+PREFERRED SKILLS:
+
+Docker
+AWS
+FastAPI
+MLflow
+
+EXPERIENCE:
+
+2+ years of experience in machine learning or data science.
+
+EDUCATION:
+
+Bachelor's degree in Computer Science, Engineering, Mathematics,
+Statistics, or related field.
