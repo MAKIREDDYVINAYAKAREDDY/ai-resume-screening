@@ -97,3 +97,38 @@ FastAPI
 PostgreSQL
       +
 Docker
+## 📸 Screenshots
+
+### 🔐 Authentication
+
+#### Login
+![Login](docs/login.png)
+
+#### Registration
+![Registration](docs/register.png)
+
+---
+
+### 📊 Application
+
+#### Dashboard
+![Dashboard](docs/dashboard.png)
+
+#### Resume Screening
+![Resume Screening](docs/screening.png)
+
+#### Candidate Details
+![Candidate Details](docs/candidate_details.png)
+
+#### AI Explanation
+![AI Explanation](docs/ai_explanation.png)
+
+#### Screening History
+![Screening History](docs/screening_history.png)
+
+---
+
+### 🐳 Docker Deployment
+
+#### Docker Environment
+![Docker](docs/docker.png)
