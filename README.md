@@ -97,6 +97,7 @@ FastAPI
 PostgreSQL
       +
 Docker
+```
 ## 📸 Screenshots
 
 ### 🔐 Authentication
@@ -130,5 +131,7 @@ Docker
 
 ### 🐳 Docker Deployment
 
+#### Docker Environment
+![Docker Environment](docs/docker.png)
 #### Docker Environment
 ![Docker](docs/docker.png)
