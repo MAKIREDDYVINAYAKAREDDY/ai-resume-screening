@@ -1,0 +1,51 @@
+from pydantic import BaseModel, Field
+
+
+class Explanation(BaseModel):
+    summary: str
+
+    strengths: list[str] = Field(
+        default_factory=list
+    )
+
+    missing_skills: list[str] = Field(
+        default_factory=list
+    )
+
+    matched_skills: list[str] = Field(
+        default_factory=list
+    )
+
+    score_breakdown: dict[str, float] = Field(
+        default_factory=dict
+    )
+
+
+class MatchResult(BaseModel):
+    filename: str
+    candidate_name: str
+
+    final_score: float
+
+    skill_score: float
+    experience_score: float
+    education_score: float
+    semantic_score: float
+
+    matched_skills: list[str] = Field(
+        default_factory=list
+    )
+
+    missing_skills: list[str] = Field(
+        default_factory=list
+    )
+
+    resume_skills: list[str] = Field(
+        default_factory=list
+    )
+
+    job_required_skills: list[str] = Field(
+        default_factory=list
+    )
+
+    explanation: Explanation

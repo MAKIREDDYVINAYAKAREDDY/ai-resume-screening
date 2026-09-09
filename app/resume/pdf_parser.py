@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import fitz
+import pymupdf
 
 
 def extract_text_from_pdf(
@@ -19,7 +19,7 @@ def extract_text_from_pdf(
             "Expected a PDF file"
         )
 
-    document = fitz.open(
+    document = pymupdf.open(
         str(path)
     )
 
@@ -43,7 +43,7 @@ def extract_text_from_pdf_bytes(
     data: bytes,
 ) -> str:
 
-    document = fitz.open(
+    document = pymupdf.open(
         stream=data,
         filetype="pdf",
     )

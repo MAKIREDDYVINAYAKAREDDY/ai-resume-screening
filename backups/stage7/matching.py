@@ -1,0 +1,350 @@
+import json
+from pathlib import Path
+
+import pandas as pd
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
+from sqlalchemy.orm import Session
+
+from app.database.database import get_db
+from app.database.models import ScreeningResult
+from app.llm.hybrid_analyzer import (
+    analyze_job_with_llm,
+    analyze_resume_with_llm,
+)
+from app.llm.match_explainer import generate_llm_explanation
+from app.ml.explainer import generate_explanation
+from app.ml.scoring import calculate_match
+from app.resume.resume_parser import extract_resume_text_from_bytes
+from app.resume.resume_processor import process_resume
+from app.schemas.match import MatchResult
+
+
+router = APIRouter(tags=["screening"])
+
+BASE_DIR = Path(__file__).resolve().parents[3]
+SKILLS_FILE = BASE_DIR / "data/skills/skills.csv"
+
+
+@router.post(
+    "/screen",
+    response_model=list[MatchResult],
+)
+async def screen_resumes(
+    job_description: str = Form(...),
+    resumes: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+):
+    if not job_description.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Job description is empty.",
+        )
+
+    if not resumes:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one resume is required.",
+        )
+
+    skills_df = pd.read_csv(SKILLS_FILE)
+
+    # --------------------------------------------------
+    # JOB ANALYSIS
+    # --------------------------------------------------
+    try:
+        llm_job = analyze_job_with_llm(
+            job_description
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Job LLM analysis failed: {exc}",
+        ) from exc
+
+    # --------------------------------------------------
+    # RESUME PROCESSING
+    # --------------------------------------------------
+    results = []
+
+    for upload in resumes:
+
+        filename = upload.filename or "resume.txt"
+
+        data = await upload.read()
+
+        # Parse resume text deterministically.
+        try:
+            text = extract_resume_text_from_bytes(
+                filename,
+                data,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Could not extract text from "
+                    f"{filename}: {exc}"
+                ),
+            ) from exc
+
+        # Deterministic profile.
+        try:
+            deterministic_profile = process_resume(
+                text,
+                str(SKILLS_FILE),
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Could not process {filename}: "
+                    f"{exc}"
+                ),
+            ) from exc
+
+        # LLM profile.
+        try:
+            llm_profile = analyze_resume_with_llm(
+                text
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"Resume LLM analysis failed "
+                    f"for {filename}: {exc}"
+                ),
+            ) from exc
+
+        # --------------------------------------------------
+        # HYBRID PROFILE
+        # --------------------------------------------------
+        #
+        # Deterministic extraction remains authoritative
+        # for dates, durations, and known skills.
+        #
+        # LLM extraction adds semantic understanding.
+        # --------------------------------------------------
+
+        combined_skills = list(
+            dict.fromkeys(
+                deterministic_profile.skills
+                + llm_profile.skills
+            )
+        )
+
+        deterministic_profile.skills = combined_skills
+
+        if not deterministic_profile.name:
+            deterministic_profile.name = (
+                llm_profile.name
+            )
+
+        if not deterministic_profile.summary:
+            deterministic_profile.summary = (
+                llm_profile.summary
+            )
+
+        if not deterministic_profile.seniority:
+            deterministic_profile.seniority = (
+                llm_profile.seniority
+            )
+
+        # --------------------------------------------------
+        # MATCHING
+        # --------------------------------------------------
+        #
+        # Use LLM-extracted job structure for the job.
+        # Use deterministic resume profile for scoring.
+        # --------------------------------------------------
+
+        score = calculate_match(
+            deterministic_profile,
+            llm_job,
+        )
+
+        # Existing deterministic explanation.
+        explanation = generate_explanation(
+            deterministic_profile,
+            llm_job,
+            score,
+        )
+
+        # --------------------------------------------------
+        # LLM EXPLANATION
+        # --------------------------------------------------
+        try:
+            llm_explanation = (
+                generate_llm_explanation(
+                    candidate_name=(
+                        deterministic_profile.name
+                        or "Unknown"
+                    ),
+                    job_title=llm_job.title,
+                    match_result=score,
+                )
+            )
+
+            explanation["summary"] = (
+                llm_explanation.get(
+                    "summary",
+                    explanation["summary"],
+                )
+            )
+
+            explanation["strengths"] = (
+                llm_explanation.get(
+                    "strengths",
+                    explanation["strengths"],
+                )
+            )
+
+            explanation["llm_concerns"] = (
+                llm_explanation.get(
+                    "concerns",
+                    [],
+                )
+            )
+
+        except Exception:
+            # If explanation generation fails,
+            # keep the deterministic explanation.
+            pass
+
+        result = MatchResult(
+            filename=filename,
+            candidate_name=(
+                deterministic_profile.name
+                or "Unknown"
+            ),
+            explanation=explanation,
+            final_score=score["final_score"],
+            skill_score=score["skill_score"],
+            preferred_skill_score=(
+                score["preferred_skill_score"]
+            ),
+            experience_score=(
+                score["experience_score"]
+            ),
+            education_score=(
+                score["education_score"]
+            ),
+            seniority_score=(
+                score["seniority_score"]
+            ),
+            semantic_score=(
+                score["semantic_score"]
+            ),
+            job_preferred_skills=(
+                score["job_preferred_skills"]
+            ),
+            candidate_seniority=(
+                score["candidate_seniority"]
+            ),
+            required_seniority=(
+                score["required_seniority"]
+            ),
+            matched_skills=(
+                score["matched_skills"]
+            ),
+            missing_skills=(
+                score["missing_skills"]
+            ),
+            resume_skills=(
+                score["resume_skills"]
+            ),
+            job_required_skills=(
+                score["job_required_skills"]
+            ),
+        )
+
+        results.append(result)
+
+        # --------------------------------------------------
+        # DATABASE
+        # --------------------------------------------------
+        db.add(
+            ScreeningResult(
+                candidate_name=(
+                    result.candidate_name
+                ),
+                filename=result.filename,
+                score=result.final_score,
+                matched_skills=json.dumps(
+                    result.matched_skills
+                ),
+                missing_skills=json.dumps(
+                    result.missing_skills
+                ),
+                semantic_score=(
+                    result.semantic_score
+                ),
+                skill_score=result.skill_score,
+                experience_score=(
+                    result.experience_score
+                ),
+                education_score=(
+                    result.education_score
+                ),
+            )
+        )
+
+    db.commit()
+
+    results.sort(
+        key=lambda result: result.final_score,
+        reverse=True,
+    )
+
+    return results
+
+
+@router.get("/results")
+def get_results(
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(ScreeningResult)
+        .order_by(
+            ScreeningResult.score.desc()
+        )
+        .all()
+    )
+
+    return [
+        {
+            "id": row.id,
+            "candidate_name": (
+                row.candidate_name
+            ),
+            "filename": row.filename,
+            "score": row.score,
+            "matched_skills": json.loads(
+                row.matched_skills
+            ),
+            "missing_skills": json.loads(
+                row.missing_skills
+            ),
+            "semantic_score": (
+                row.semantic_score
+            ),
+            "skill_score": row.skill_score,
+            "experience_score": (
+                row.experience_score
+            ),
+            "education_score": (
+                row.education_score
+            ),
+            "created_at": (
+                row.created_at.isoformat()
+            ),
+        }
+        for row in rows
+    ]

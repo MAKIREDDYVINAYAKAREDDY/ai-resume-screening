@@ -1,0 +1,129 @@
+from pathlib import Path
+import re
+
+
+# Maximum size of a single resume: 10 MB
+MAX_RESUME_SIZE = 10 * 1024 * 1024
+
+# Maximum number of resumes in one screening request
+MAX_RESUMES_PER_REQUEST = 20
+
+# Job description limits
+MIN_JOB_DESCRIPTION_LENGTH = 20
+MAX_JOB_DESCRIPTION_LENGTH = 20_000
+
+# Supported resume formats
+ALLOWED_RESUME_EXTENSIONS = {
+    ".pdf",
+    ".docx",
+    ".txt",
+}
+
+
+def validate_resume_extension(filename: str) -> None:
+    if not filename:
+        raise ValueError(
+            "Resume filename is required."
+        )
+
+    extension = Path(filename).suffix.lower()
+
+    if extension not in ALLOWED_RESUME_EXTENSIONS:
+        allowed = ", ".join(
+            sorted(ALLOWED_RESUME_EXTENSIONS)
+        )
+
+        raise ValueError(
+            f"Unsupported resume format "
+            f"'{extension}'. "
+            f"Allowed formats: {allowed}."
+        )
+
+
+def validate_resume_size(file_size: int) -> None:
+    if file_size <= 0:
+        raise ValueError(
+            "Resume file is empty."
+        )
+
+    if file_size > MAX_RESUME_SIZE:
+        max_mb = MAX_RESUME_SIZE / (
+            1024 * 1024
+        )
+
+        raise ValueError(
+            f"Resume file is too large. "
+            f"Maximum allowed size is "
+            f"{max_mb:.0f} MB."
+        )
+
+
+def validate_resume_count(
+    resume_count: int,
+) -> None:
+    if resume_count <= 0:
+        raise ValueError(
+            "At least one resume is required."
+        )
+
+    if resume_count > MAX_RESUMES_PER_REQUEST:
+        raise ValueError(
+            f"Too many resumes. "
+            f"A maximum of "
+            f"{MAX_RESUMES_PER_REQUEST} "
+            f"resumes can be screened "
+            f"per request."
+        )
+
+
+def validate_job_description(
+    job_description: str,
+) -> None:
+    if not job_description:
+        raise ValueError(
+            "Job description is required."
+        )
+
+    cleaned = job_description.strip()
+
+    if not cleaned:
+        raise ValueError(
+            "Job description cannot be empty."
+        )
+
+    if len(cleaned) < MIN_JOB_DESCRIPTION_LENGTH:
+        raise ValueError(
+            f"Job description is too short. "
+            f"Minimum length is "
+            f"{MIN_JOB_DESCRIPTION_LENGTH} characters."
+        )
+
+    if len(cleaned) > MAX_JOB_DESCRIPTION_LENGTH:
+        raise ValueError(
+            f"Job description is too long. "
+            f"Maximum length is "
+            f"{MAX_JOB_DESCRIPTION_LENGTH} characters."
+        )
+
+
+def sanitize_filename(
+    filename: str,
+) -> str:
+    name = Path(filename).name
+
+    name = re.sub(
+        r"[^A-Za-z0-9._-]",
+        "_",
+        name,
+    )
+
+    name = re.sub(
+        r"_+",
+        "_",
+        name,
+    )
+
+    if not name:
+        return "resume"
+
+    return name[:255]

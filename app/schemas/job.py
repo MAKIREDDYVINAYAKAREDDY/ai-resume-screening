@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field
 
 
 class JobProfile(BaseModel):
-
     title: str = ""
 
     required_skills: list[str] = Field(
@@ -14,6 +13,8 @@ class JobProfile(BaseModel):
     )
 
     experience_years: float = 0.0
+
+    seniority: str | None = None
 
     education: list[str] = Field(
         default_factory=list

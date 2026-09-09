@@ -20,3 +20,16 @@ requests>=2.31,<3
 
 pytest>=8,<9
 httpx>=0.27,<1
+sentence-transformers>=3,<6
+torch>=2.2,<3
+
+python-dateutil>=2.8,<3
+
+openai>=1.0,<3
+ollama>=0.5,<1
+alembic
+slowapi
+bcrypt
+python-jose[cryptography]
+
+email-validator

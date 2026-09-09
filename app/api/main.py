@@ -1,61 +1,158 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from app.api.routes import auth
 from app.api.routes import matching
 
-from app.core.config import (
-    get_settings,
-)
+from app.core.config import get_settings
 
-from app.database.database import (
-    Base,
-    engine,
-)
-
+from app.database.database import Base, engine
 from app.database import models  # noqa: F401
 
 
 settings = get_settings()
 
 
-Base.metadata.create_all(
-    bind=engine
+limiter = Limiter(
+    key_func=get_remote_address
 )
 
 
 app = FastAPI(
     title="AI Resume Screening API",
-    description=(
-        "AI-powered resume screening "
-        "and job matching API."
-    ),
+    description="AI-powered resume screening and job matching API.",
     version="1.0.0",
 )
 
 
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(
+    request: Request,
+    exc: RateLimitExceeded,
+):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": "Too Many Requests",
+            "message": "Too many requests. Please wait before trying again.",
+            "status_code": 429,
+        },
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=(
-        settings.cors_origin_list
-    ),
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+    ],
 )
 
 
-app.include_router(
-    matching.router,
-    prefix="/api",
-)
+def error_response(
+    status_code: int,
+    message: str,
+    error: str,
+):
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": error,
+            "message": message,
+            "status_code": status_code,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(
+    request: Request,
+    exc: Exception,
+):
+    return error_response(
+        status_code=500,
+        error="Internal Server Error",
+        message="An unexpected error occurred while processing the request.",
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+):
+    errors = exc.errors()
+    messages = []
+
+    for error in errors:
+        location = error.get("loc", [])
+        message = error.get(
+            "msg",
+            "Invalid request.",
+        )
+
+        if location:
+            field = ".".join(
+                str(item)
+                for item in location
+            )
+            messages.append(
+                f"{field}: {message}"
+            )
+        else:
+            messages.append(message)
+
+    return error_response(
+        status_code=422,
+        error="Validation Error",
+        message="; ".join(messages),
+    )
 
 
 @app.get("/health")
 def health():
-
     return {
         "status": "ok",
-        "environment": (
-            settings.environment
-        ),
+        "environment": settings.environment,
     }
+
+
+@app.get("/")
+def root():
+    return {
+        "name": "AI Resume Screening API",
+        "status": "running",
+        "health": "/health",
+        "docs": "/docs",
+    }
+
+
+# Authentication
+app.include_router(
+    auth.router,
+    prefix="/api",
+)
+
+
+# Resume screening and history
+app.include_router(
+    matching.router,
+    prefix="/api",
+)

@@ -4,18 +4,30 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./resume_screening.db"
-
-    api_host: str = "0.0.0.0"
-    api_port: int = 8000
-
+    app_name: str = "AI Resume Screening API"
     environment: str = "development"
 
+    # Keep SQLite as the current default.
+    # We will switch this to PostgreSQL after migrations are complete.
+    database_url: str = "sqlite:///./resume_screening.db"
+
     cors_origins: str = "http://localhost:8501"
+
+    jwt_secret_key: str = "CHANGE_THIS_IN_PRODUCTION"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2:3b"
+    llm_enabled: bool = True
+    llm_provider: str = "ollama"
+    llm_model: str = "llama3.2:3b"
+    llm_enabled: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        case_sensitive=False,
         extra="ignore",
     )
 

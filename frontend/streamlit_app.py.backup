@@ -1,0 +1,409 @@
+import requests
+import streamlit as st
+
+
+API_URL = "http://localhost:8000"
+
+
+st.set_page_config(
+    page_title="AI Resume Screening",
+    page_icon="📄",
+    layout="wide",
+)
+
+
+st.title("📄 AI Resume Screening & Job Matching")
+st.caption(
+    "AI-powered candidate screening with explainable scoring"
+)
+
+
+st.divider()
+
+
+# ---------------------------------------------------------
+# Job Description
+# ---------------------------------------------------------
+
+st.subheader("1. Job Description")
+
+job_description = st.text_area(
+    "Paste the job description",
+    height=350,
+    placeholder=(
+        "JOB TITLE: Machine Learning Engineer\n\n"
+        "REQUIRED SKILLS:\n"
+        "Python\n"
+        "SQL\n"
+        "Machine Learning\n"
+        "PyTorch\n"
+        "Docker\n\n"
+        "EXPERIENCE:\n"
+        "3+ years\n\n"
+        "EDUCATION:\n"
+        "Bachelor's degree in Computer Science"
+    ),
+)
+
+
+# ---------------------------------------------------------
+# Resume Upload
+# ---------------------------------------------------------
+
+st.subheader("2. Upload Resumes")
+
+uploaded_files = st.file_uploader(
+    "Upload candidate resumes",
+    type=["pdf", "docx", "txt"],
+    accept_multiple_files=True,
+)
+
+
+# ---------------------------------------------------------
+# Screening
+# ---------------------------------------------------------
+
+if st.button(
+    "🚀 Screen Candidates",
+    type="primary",
+    use_container_width=True,
+):
+
+    if not job_description.strip():
+        st.error(
+            "Please enter a job description."
+        )
+        st.stop()
+
+    if not uploaded_files:
+        st.error(
+            "Please upload at least one resume."
+        )
+        st.stop()
+
+    files = []
+
+    for uploaded_file in uploaded_files:
+
+        files.append(
+            (
+                "resumes",
+                (
+                    uploaded_file.name,
+                    uploaded_file.getvalue(),
+                    uploaded_file.type,
+                ),
+            )
+        )
+
+    try:
+
+        with st.spinner(
+            "Analyzing resumes..."
+        ):
+
+            response = requests.post(
+                f"{API_URL}/api/screen",
+                data={
+                    "job_description": job_description,
+                },
+                files=files,
+                timeout=300,
+            )
+
+        if response.status_code != 200:
+
+            try:
+                detail = response.json().get(
+                    "detail",
+                    response.text,
+                )
+            except Exception:
+                detail = response.text
+
+            st.error(
+                f"Screening failed: {detail}"
+            )
+            st.stop()
+
+        results = response.json()
+
+    except requests.exceptions.ConnectionError:
+
+        st.error(
+            "Could not connect to FastAPI. "
+            "Make sure the backend is running on port 8000."
+        )
+        st.stop()
+
+    except requests.exceptions.Timeout:
+
+        st.error(
+            "The screening request timed out."
+        )
+        st.stop()
+
+    except Exception as exc:
+
+        st.error(
+            f"Unexpected error: {exc}"
+        )
+        st.stop()
+
+
+    # -----------------------------------------------------
+    # Results
+    # -----------------------------------------------------
+
+    st.divider()
+
+    st.header("🏆 Candidate Ranking")
+
+    st.success(
+        f"Successfully analyzed {len(results)} candidate(s)."
+    )
+
+
+    for index, candidate in enumerate(
+        results,
+        start=1,
+    ):
+
+        score = candidate["final_score"]
+
+        if score >= 80:
+            status = "🟢 Strong Match"
+
+        elif score >= 60:
+            status = "🟡 Moderate Match"
+
+        else:
+            status = "🔴 Weak Match"
+
+
+        with st.container(border=True):
+
+            # ---------------------------------------------
+            # Candidate Header
+            # ---------------------------------------------
+
+            col1, col2, col3 = st.columns(
+                [4, 2, 2]
+            )
+
+            with col1:
+
+                st.subheader(
+                    f"#{index} {candidate['candidate_name']}"
+                )
+
+                st.caption(
+                    candidate["filename"]
+                )
+
+            with col2:
+
+                st.metric(
+                    "Overall Match",
+                    f"{score:.1f}%",
+                )
+
+            with col3:
+
+                st.write(status)
+
+
+            # ---------------------------------------------
+            # Score Breakdown
+            # ---------------------------------------------
+
+            st.markdown(
+                "### 📊 Score Breakdown"
+            )
+
+            c1, c2, c3, c4 = st.columns(4)
+
+            with c1:
+
+                st.metric(
+                    "Skills",
+                    f"{candidate['skill_score']:.1f}%",
+                )
+
+            with c2:
+
+                st.metric(
+                    "Experience",
+                    f"{candidate['experience_score']:.1f}%",
+                )
+
+            with c3:
+
+                st.metric(
+                    "Education",
+                    f"{candidate['education_score']:.1f}%",
+                )
+
+            with c4:
+
+                st.metric(
+                    "Semantic",
+                    f"{candidate['semantic_score']:.1f}%",
+                )
+
+
+            # ---------------------------------------------
+            # Explanation
+            # ---------------------------------------------
+
+            explanation = candidate.get(
+                "explanation",
+                {},
+            )
+
+            st.markdown(
+                "### 💡 Why this candidate scored this way"
+            )
+
+            st.info(
+                explanation.get(
+                    "summary",
+                    "No explanation available.",
+                )
+            )
+
+
+            # ---------------------------------------------
+            # Strengths
+            # ---------------------------------------------
+
+            strengths = explanation.get(
+                "strengths",
+                [],
+            )
+
+            if strengths:
+
+                st.markdown(
+                    "#### ✅ Strengths"
+                )
+
+                for strength in strengths:
+
+                    st.write(
+                        f"✓ {strength}"
+                    )
+
+
+            # ---------------------------------------------
+            # Matched Skills
+            # ---------------------------------------------
+
+            matched = candidate.get(
+                "matched_skills",
+                [],
+            )
+
+            if matched:
+
+                st.markdown(
+                    "#### 🟢 Matched Skills"
+                )
+
+                st.write(
+                    ", ".join(matched)
+                )
+
+
+            # ---------------------------------------------
+            # Missing Skills
+            # ---------------------------------------------
+
+            missing = candidate.get(
+                "missing_skills",
+                [],
+            )
+
+            if missing:
+
+                st.markdown(
+                    "#### 🔴 Missing Required Skills"
+                )
+
+                for skill in missing:
+
+                    st.write(
+                        f"• {skill}"
+                    )
+
+            else:
+
+                st.success(
+                    "All required skills matched."
+                )
+
+
+            # ---------------------------------------------
+            # Score Visualization
+            # ---------------------------------------------
+
+            st.markdown(
+                "#### Score Components"
+            )
+
+            st.progress(
+                min(
+                    int(candidate["skill_score"]),
+                    100,
+                ),
+                text=(
+                    f"Skills — "
+                    f"{candidate['skill_score']:.1f}%"
+                ),
+            )
+
+            st.progress(
+                min(
+                    int(candidate["experience_score"]),
+                    100,
+                ),
+                text=(
+                    f"Experience — "
+                    f"{candidate['experience_score']:.1f}%"
+                ),
+            )
+
+            st.progress(
+                min(
+                    int(candidate["education_score"]),
+                    100,
+                ),
+                text=(
+                    f"Education — "
+                    f"{candidate['education_score']:.1f}%"
+                ),
+            )
+
+            st.progress(
+                min(
+                    int(candidate["semantic_score"]),
+                    100,
+                ),
+                text=(
+                    f"Semantic — "
+                    f"{candidate['semantic_score']:.1f}%"
+                ),
+            )
+
+
+# ---------------------------------------------------------
+# Footer
+# ---------------------------------------------------------
+
+st.divider()
+
+st.caption(
+    "AI Resume Screening System • "
+    "Decision-support tool — final hiring decisions "
+    "should remain with qualified human reviewers."
+)

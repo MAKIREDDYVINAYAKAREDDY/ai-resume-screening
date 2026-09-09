@@ -1,0 +1,85 @@
+from functools import lru_cache
+
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+)
+
+
+class Settings(BaseSettings):
+
+    # ========================================================
+    # DATABASE
+    # ========================================================
+
+    database_url: str = (
+        "sqlite:///./resume_screening.db"
+    )
+
+    # ========================================================
+    # API
+    # ========================================================
+
+    api_host: str = "0.0.0.0"
+
+    api_port: int = 8000
+
+    environment: str = "development"
+
+    cors_origins: str = (
+        "http://localhost:8501"
+    )
+
+    # ========================================================
+    # LLM
+    # ========================================================
+
+    llm_enabled: bool = True
+
+    llm_provider: str = "ollama"
+
+    ollama_model: str = "llama3.2:3b"
+
+    openai_api_key: str = ""
+
+    openai_model: str = "gpt-5.6-luna"
+
+    # ========================================================
+    # JWT
+    # ========================================================
+
+    jwt_secret_key: str = (
+        "CHANGE_THIS_SECRET_KEY_IN_PRODUCTION"
+    )
+
+    jwt_algorithm: str = "HS256"
+
+    access_token_expire_minutes: int = 60
+
+    # ========================================================
+    # PYDANTIC SETTINGS
+    # ========================================================
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # ========================================================
+    # CORS
+    # ========================================================
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+
+        return [
+            origin.strip()
+            for origin in self.cors_origins.split(",")
+            if origin.strip()
+        ]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

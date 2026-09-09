@@ -1,23 +1,11 @@
 from app.ml.preprocessing import clean_text
-
-from app.ml.skill_extraction import (
-    extract_skills,
-    load_skills,
-)
-
-from app.resume.contact_extractor import (
-    extract_email,
-    extract_phone,
-)
-
-from app.resume.name_extractor import (
-    extract_name,
-)
-
-from app.resume.section_parser import (
-    parse_sections,
-)
-
+from app.ml.skill_extraction import extract_skills, load_skills
+from app.resume.contact_extractor import extract_email, extract_phone
+from app.resume.experience_extractor import extract_experience
+from app.resume.education_extractor import extract_education
+from app.resume.name_extractor import extract_name
+from app.ml.seniority_detector import detect_seniority
+from app.resume.section_parser import parse_sections
 from app.schemas.resume import (
     EducationItem,
     ExperienceItem,
@@ -25,14 +13,11 @@ from app.schemas.resume import (
 )
 
 
-def _lines(
-    section: str,
-) -> list[str]:
-
+def _lines(section: str) -> list[str]:
     return [
-        line.strip(" -•\t")
-        for line in section.splitlines()
-        if line.strip()
+        x.strip(" -•\t")
+        for x in section.splitlines()
+        if x.strip()
     ]
 
 
@@ -41,35 +26,29 @@ def process_resume(
     skills_file: str,
 ) -> ResumeProfile:
 
-    skills_df = load_skills(
-        skills_file
-    )
+    skills_df = load_skills(skills_file)
 
-    sections = parse_sections(
-        text
-    )
+    sections = parse_sections(text)
 
     skills = extract_skills(
         text,
-        skills_df
+        skills_df,
     )
 
-    experience_lines = _lines(
-        sections.get(
-            "experience",
-            "",
-        )
+    experience_data = extract_experience(
+        sections.get("experience", "")
     )
 
-    education_lines = _lines(
-        sections.get(
-            "education",
-            "",
-        )
+    experience = [
+        ExperienceItem(**item)
+        for item in experience_data
+    ]
+
+    education = extract_education(
+        sections.get("education", "")
     )
 
     return ResumeProfile(
-
         name=extract_name(text),
 
         email=extract_email(text),
@@ -83,24 +62,9 @@ def process_resume(
 
         skills=skills,
 
-        experience=(
-            [
-                ExperienceItem(
-                    description="\n".join(
-                        experience_lines
-                    )
-                )
-            ]
-            if experience_lines
-            else []
-        ),
+        experience=experience,
 
-        education=[
-            EducationItem(
-                degree=line
-            )
-            for line in education_lines
-        ],
+        education=education,
 
         certifications=_lines(
             sections.get(
@@ -116,7 +80,9 @@ def process_resume(
             )
         ),
 
-        raw_text=clean_text(
-            text
+        seniority=detect_seniority(
+            sections.get("experience", "")
         ),
+
+        raw_text=clean_text(text),
     )

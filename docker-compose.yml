@@ -1,61 +1,59 @@
 services:
 
-  api:
+  postgres:
+    image: postgres:17
+    container_name: resume_screening_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: resume_screening
+      POSTGRES_USER: resume_user
+      POSTGRES_PASSWORD: resume_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resume_user -d resume_screening"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-    build: .
-
-    container_name:
-      resume-screening-api
-
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: resume_screening_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://resume_user:resume_password@postgres:5432/resume_screening
+      CORS_ORIGINS: http://localhost:8501
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: llama3.2:3b
+      LLM_ENABLED: "true"
+      LLM_PROVIDER: ollama
+      LLM_MODEL: llama3.2:3b
+      JWT_SECRET_KEY: CHANGE_THIS_IN_PRODUCTION
     ports:
       - "8000:8000"
-
-    environment:
-
-      DATABASE_URL:
-        sqlite:////app/resume_screening.db
-
-      CORS_ORIGINS:
-        http://localhost:8501
-
-      ENVIRONMENT:
-        docker
-
-    volumes:
-
-      - app_data:/app
-
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
 
   frontend:
-
-    build: .
-
-    container_name:
-      resume-screening-frontend
-
-    command:
-      [
-        "streamlit",
-        "run",
-        "frontend/streamlit_app.py",
-        "--server.address=0.0.0.0",
-        "--server.port=8501"
-      ]
-
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: resume_screening_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      API_BASE_URL: http://backend:8000/api
     ports:
-
       - "8501:8501"
 
-    environment:
-
-      API_URL:
-        http://api:8000
-
-    depends_on:
-
-      - api
-
-
 volumes:
-
-  app_data:
+  postgres_data:

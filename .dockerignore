@@ -1,0 +1,12 @@
+.venv
+__pycache__
+*.pyc
+.git
+.gitignore
+.pytest_cache
+.mypy_cache
+.streamlit
+resume_screening.db
+resume_screening_backup_stage10.db
+*.log
+.DS_Store
